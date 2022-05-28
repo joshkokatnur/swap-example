@@ -3,6 +3,7 @@ pragma solidity =0.7.6;
 pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
@@ -13,8 +14,8 @@ import '@uniswap/v3-periphery/contracts/base/LiquidityManagement.sol';
 contract LiquidityExamples is IERC721Receiver {
     
     // rinkeby addresses
+    address public constant fDAI = 0x15F0Ca26781C3852f8166eD2ebce5D18265cceb7;
     address public constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
-    address public constant DAI = 0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735;
 
     // 0.3% pool fee
     uint24 public constant poolFee = 3000;
@@ -47,24 +48,28 @@ contract LiquidityExamples is IERC721Receiver {
             uint256 amount1
         )
     {
-        uint256 amount0ToMint = 10000000000 * (10**18);
-        uint256 amount1ToMint = 0.0000297647 * (10**18);
-
-        // transfer tokens to contract
-        //TransferHelper.safeTransferFrom(DAI, msg.sender, address(this), amount0ToMint);
-        //TransferHelper.safeTransferFrom(USDC, msg.sender, address(this), amount1ToMint);
+        uint256 amount0ToMint = 1000;
+        uint256 amount1ToMint = 1000;
 
         // Approve the position manager
-        TransferHelper.safeApprove(DAI, address(nonfungiblePositionManager), amount0ToMint);
+        TransferHelper.safeApprove(fDAI, address(nonfungiblePositionManager), amount0ToMint);
         TransferHelper.safeApprove(WETH, address(nonfungiblePositionManager), amount1ToMint);
+
+        // Get pool
+        IUniswapV3Pool pool = IUniswapV3Pool(IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984).getPool(fDAI, WETH, poolFee));
+        (, int24 tick, , , , , ) = pool.slot0();
+        int24 tickSpacing = pool.tickSpacing();
+
+        int24 lower = (TickMath.MIN_TICK / tickSpacing) * tickSpacing;
+        int24 upper = (TickMath.MAX_TICK / tickSpacing) * tickSpacing;
 
         INonfungiblePositionManager.MintParams memory params =
             INonfungiblePositionManager.MintParams({
-                token0: DAI,
+                token0: fDAI,
                 token1: WETH,
                 fee: poolFee,
-                tickLower: TickMath.MIN_TICK,
-                tickUpper: TickMath.MAX_TICK,
+                tickLower: lower,
+                tickUpper: upper,
                 amount0Desired: amount0ToMint,
                 amount1Desired: amount1ToMint,
                 amount0Min: 0,
